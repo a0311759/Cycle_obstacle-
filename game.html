@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bicycle Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/konva/8.3.0/konva.min.js"></script>
+    <style>
+    
+    /* Dark theme for body */
+body {
+    margin: 0;
+    background-color: #121212;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* Container settings */
+#container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Making the canvas responsive */
+canvas {
+    width: 100%;
+    height: 100%;
+}
+
+/* Ensuring responsive layout */
+@media screen and (max-width: 768px) {
+    #container {
+        height: 100vh;
+        width: 100vw;
+    }
+
+    canvas {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+/* Adding a shadow effect to all Konva elements */
+.konvajs-content {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Styling for text elements (if any) */
+.text {
+    fill: #ffffff;
+    font-size: 18px;
+}
+
+/* Styling for buttons or any interactive elements */
+button {
+    background-color: #1c1c1c;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+button:hover {
+    background-color: #333333;
+}
+
+button:active {
+    background-color: #555555;
+}
+
+/* Ensure obstacles and other moving objects are highlighted */
+.obstacle {
+    fill: #ff5555;
+    stroke: #ff0000;
+}
+
+.konva-container {
+    position: relative;
+    overflow: hidden;
+}
+
+
+#playAgainButton {
+    background-color: #1c1c1c;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+#playAgainButton:hover {
+    background-color: #333333;
+}
+
+#playAgainButton:active {
+    background-color: #555555;
+}
+
+
+#gameOverOverlay {
+    display: none; /* Initially hidden */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black background */
+    color: white;
+    text-align: center;
+    padding-top: 20%; /* Vertically center the text */
+    z-index: 9999; /* Ensure the overlay is on top */
+}
+
+#gameOverOverlay h1 {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 0;
+}
+
+#messageContainer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black background */
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 18px;
+    text-align: center;
+    z-index: 9998; /* Ensure the message container is above other elements */
+    display: none; /* Initially hidden */
+}
+
+#scorecontainer {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: black;
+    color: white;
+    padding: 5px;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1em;
+}
+#speed, #distance {
+    margin: 2px;
+}
+
+
+
+        
+        
+            </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="messageContainer">
+        Tap to move
+    </div>
+    
+    <div id="scorecontainer">
+    <div id="speed">Speed: 0.0</div>
+    <div id="distance">Distance: 0.0</div>
+</div>
+
+    
+    
+    
+    <div id="gameOverOverlay">
+    <h1>Game Over</h1>
+        <div id="distancecov"><b>Distance: </b></div>
+    <button id="playAgainButton">Play Again</button>
+</div>
+
+    
+    
+    
+     <script>
+     let gameOver = false;
+        var scale = 0.5; // Scaling factor
+
+        var stage = new Konva.Stage({
+            container: 'container',
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+
+        var layer = new Konva.Layer();
+        stage.add(layer);
+
+        // Function to draw spokes
+        function drawSpokes(x, y, radius, numSpokes) {
+            var spokes = [];
+            var angleStep = 360 / numSpokes;
+            for (var i = 0; i < numSpokes; i++) {
+                var angle = angleStep * i;
+                var rad = (Math.PI / 180) * angle;
+                var endX = x + radius * Math.cos(rad);
+                var endY = y + radius * Math.sin(rad);
+                var spoke = new Konva.Line({
+                    points: [x, y, endX, endY],
+                    stroke: 'black',
+                    strokeWidth: 2 * scale
+                });
+                spokes.push(spoke);
+            }
+            return spokes;
+        }
+
+        // Draw wheels with 3 big spokes
+        function drawWheelWithSpokes(x, y, radius) {
+            var wheel = new Konva.Circle({
+                x: x,
+                y: y,
+                radius: radius,
+                stroke: 'black',
+                strokeWidth: 5 * scale,
+                fill: 'gray',
+                shadowColor: 'black',
+                shadowBlur: 10 * scale,
+                shadowOffsetX: 5 * scale,
+                shadowOffsetY: 5 * scale
+            });
+
+            var spokes = drawSpokes(x, y, radius, 3); // 3 spokes
+            return { wheel: wheel, spokes: spokes };
+        }
+
+        var frontWheelData = drawWheelWithSpokes(stage.width() / 2 + 100 * scale, stage.height() / 2, 50 * scale);
+        var backWheelData = drawWheelWithSpokes(stage.width() / 2 - 100 * scale, stage.height() / 2, 50 * scale);
+
+        // Draw road
+        var road = new Konva.Rect({
+            x: 0,
+            y: stage.height() / 2 + 50 * scale, // Position the road below the wheels
+            width: stage.width(),
+            height: 100 * scale, // Height of the road
+            fill: 'darkgray',
+            stroke: 'black',
+            strokeWidth: 2 * scale
+        });
+
+        // Draw bike frame (facing right)
+        var frame1 = new Konva.Line({
+            points: [stage.width() / 2 - 120 * scale, stage.height() / 2, stage.width() / 2 + 120 * scale, stage.height() / 2],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        var frame2 = new Konva.Line({
+            points: [stage.width() / 2 - 120 * scale, stage.height() / 2, stage.width() / 2 - 60 * scale, stage.height() / 2 - 60 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        var frame3 = new Konva.Line({
+            points: [stage.width() / 2 + 120 * scale, stage.height() / 2, stage.width() / 2 + 60 * scale, stage.height() / 2 - 60 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        var frame4 = new Konva.Line({
+            points: [stage.width() / 2 - 60 * scale, stage.height() / 2 - 60 * scale, stage.width() / 2 + 60 * scale, stage.height() / 2 - 60 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        // Draw seat (moved left)
+        var seat = new Konva.Rect({
+            x: stage.width() / 2 - 45 * scale,
+            y: stage.height() / 2 - 80 * scale,
+            width: 30 * scale,
+            height: 10 * scale,
+            fill: 'black',
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        // Draw handlebars (joined with the frame)
+        var handlebar1 = new Konva.Line({
+            points: [stage.width() / 2 + 100 * scale, stage.height() / 2 - 60 * scale, stage.width() / 2 + 140 * scale, stage.height() / 2 - 100 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        var handlebar2 = new Konva.Line({
+            points: [stage.width() / 2 + 140 * scale, stage.height() / 2 - 100 * scale, stage.width() / 2 + 120 * scale, stage.height() / 2 - 120 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        var handlebarConnector = new Konva.Line({
+            points: [stage.width() / 2 + 120 * scale, stage.height() / 2 - 60 * scale, stage.width() / 2 + 140 * scale, stage.height() / 2 - 100 * scale],
+            stroke: 'black',
+            strokeWidth: 5 * scale,
+            shadowColor: 'black',
+            shadowBlur: 10 * scale,
+            shadowOffsetX: 5 * scale,
+            shadowOffsetY: 5 * scale
+        });
+
+        // Add shapes to layer
+        layer.add(road); // Add the road
+        layer.add(frontWheelData.wheel);
+        frontWheelData.spokes.forEach(spoke => layer.add(spoke));
+        layer.add(backWheelData.wheel);
+        backWheelData.spokes.forEach(spoke => layer.add(spoke));
+        layer.add(frame1);
+        layer.add(frame2);
+        layer.add(frame3);
+        layer.add(frame4);
+        layer.add(seat);
+        layer.add(handlebar1);
+        layer.add(handlebar2);
+        layer.add(handlebarConnector);
+
+        layer.draw();
+
+        // Animation for rotating wheels
+        var frontWheelAnimation;
+        var backWheelAnimation;
+        var currentSpeed = 0;
+        var maxSpeed = 10; // Maximum speed
+        var accelerationInterval;
+        var decelerationInterval;
+
+        function startRotation(wheelData) {
+            return new Konva.Animation(function(frame) {
+                wheelData.wheel.rotate(currentSpeed);
+                wheelData.spokes.forEach(function(spoke) {
+                    // Update spoke positions
+                    var x = wheelData.wheel.x();
+                    var y = wheelData.wheel.y();
+                    var radius = wheelData.wheel.radius();
+                    var spokeIndex = wheelData.spokes.indexOf(spoke);
+                    var angleStep = 360 / wheelData.spokes.length;
+                    var rad = (Math.PI / 180) * (angleStep * spokeIndex + wheelData.wheel.rotation());
+                    var endX = x + radius * Math.cos(rad);
+                    var endY = y + radius * Math.sin(rad);
+                    spoke.points([x, y, endX, endY]);
+                });
+                layer.batchDraw();
+            }, layer);
+        }
+
+        function accelerate() {
+            clearInterval(decelerationInterval);
+            accelerationInterval = setInterval(() => {
+                if (currentSpeed < maxSpeed) {
+                    currentSpeed += maxSpeed / (1.5 * 180); // Increment speed gradually over 3.5 seconds
+                } else {
+                    clearInterval(accelerationInterval); // Stop acceleration once max speed is reached
+                }
+            }, 1000 / 60); // 60 times per second (frames per second)
+        }
+
+        function decelerate() {
+            clearInterval(accelerationInterval);
+            decelerationInterval = setInterval(() => {
+                if (currentSpeed > 0) {
+                    currentSpeed -= maxSpeed / ( 0.5 * 540); // Decrement speed gradually over 3.5 seconds
+                } else {
+                    currentSpeed = 0;
+                    clearInterval(decelerationInterval); // Stop deceleration once speed is 0
+                }
+            }, 1000 / 60); // 60 times per second (frames per second)
+        }
+        
+
+
+
+
+var maxObstacles = 1; // Maximum number of obstacles on the screen
+var currentObstacles = 0; // Track the current number of obstacles
+
+function createFallingObstacle() {
+    if (currentObstacles >= maxObstacles) {
+        return; // Do not create a new obstacle if the limit is reached
+    }
+
+    var width = 50 * scale;
+    var height = 50 * scale;
+    var x = Math.random() * (stage.width() - width); // Random x position
+    var y = -height; // Start above the visible area
+    var obstacle = new Konva.Rect({
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        fill: 'grey',
+        stroke: 'black',
+        strokeWidth: 2 * scale
+    });
+
+    layer.add(obstacle);
+    currentObstacles++; // Increment the obstacle count
+
+    var obstacleAnimation = new Konva.Animation(function(frame) {
+        // Update obstacle position
+        obstacle.y(obstacle.y() + 5); // Adjust the speed as needed
+        
+        // Horizontal movement based on bike speed
+        var horizontalMovement = currentSpeed * 0.1; // Adjust this multiplier as needed
+        obstacle.x(obstacle.x() - 3.5 * horizontalMovement);
+
+        // Check for collision with the bike
+        if (detectCollision(obstacle)) {
+            alert('Collision detected!');
+            obstacle.destroy();
+            currentObstacles--; // Decrement the obstacle count when destroyed
+            layer.draw();
+            return; // Exit animation if collision is detected
+        }
+
+        // Remove the obstacle if it goes off-screen
+        if (obstacle.y() > stage.height()) {
+            obstacle.destroy();
+            currentObstacles--; // Decrement the obstacle count when destroyed
+        }
+    }, layer);
+
+    obstacleAnimation.start();
+}
+
+
+
+
+function detectCollision(obstacle) {
+    // Get bounding box for obstacle
+    var obstacleBounds = obstacle.getClientRect();
+
+    // Check collision with front and back wheels
+    var wheels = [frontWheelData.wheel, backWheelData.wheel];
+    for (var i = 0; i < wheels.length; i++) {
+        var wheel = wheels[i];
+        var wheelBounds = wheel.getClientRect();
+
+        // Scale down the wheel bounding box
+        var scale = 0.5; // Adjust this scale factor as needed (0.7 means 70% of the original size)
+        var scaledWheelBounds = {
+            x: wheelBounds.x + (1 - scale) * wheelBounds.width / 2,
+            y: wheelBounds.y + (1 - scale) * wheelBounds.height / 2,
+            width: wheelBounds.width * scale,
+            height: wheelBounds.height * scale
+        };
+
+        if (obstacleBounds.x < scaledWheelBounds.x + scaledWheelBounds.width &&
+            obstacleBounds.x + obstacleBounds.width > scaledWheelBounds.x &&
+            obstacleBounds.y < scaledWheelBounds.y + scaledWheelBounds.height &&
+            obstacleBounds.y + obstacleBounds.height > scaledWheelBounds.y) {
+              
+              gameOver = true;
+            
+            // Display the Game Over overlay
+            document.getElementById('gameOverOverlay').style.display = 'block';
+
+            // Destroy the obstacle by removing it from the stage or layer
+            obstacle.destroy(); // This removes the obstacle from the canvas
+            return; // Exit animation if collision is detected
+        }
+    }
+
+    return false; // No collision
+}
+
+
+
+
+
+// Function to start creating obstacles at random intervals
+function startObstacleGeneration() {
+    setInterval(createFallingObstacle, 1000); // Create a new obstacle every second (adjust as needed)
+}
+
+// Start generating obstacles
+startObstacleGeneration();
+
+
+        
+        
+        
+
+        function handleTouchStart() {
+            accelerate();
+            frontWheelAnimation.start();
+            backWheelAnimation.start();
+        }
+
+        function handleTouchEnd() {
+            decelerate();
+        }
+
+        stage.on('touchstart mousedown', handleTouchStart);
+        stage.on('touchend mouseup', handleTouchEnd);
+
+        frontWheelAnimation = startRotation(frontWheelData);
+        backWheelAnimation = startRotation(backWheelData);
+        
+        
+        window.onload = function() {
+            var messageContainer = document.getElementById('messageContainer');
+            messageContainer.style.display = 'block'; // Show the message container
+
+            setTimeout(function() {
+                messageContainer.style.display = 'none'; // Hide after 2 seconds
+            }, 2000); // 2000 milliseconds = 2 seconds
+        };
+        
+        
+        document.getElementById('playAgainButton').addEventListener('click', function() {
+    window.location.href = 'index.html';
+});
+
+
+const GameScore = (function () {
+    let speed = 0;
+    let distance = 0;
+    const maxSpeed = 15;
+    const decrementRate = 1.2;
+    const incrementIntervalTime = 100;
+    let incrementInterval;
+    let decrementInterval;
+    let distanceInterval;
+    let isHolding = false;
+
+    function startIncrement() {
+        if (isHolding ) return; // Prevent starting a new increment if already holding
+        isHolding = true;
+
+        incrementInterval = setInterval(() => {
+            if (speed < maxSpeed) {
+                speed += 0.4;
+                document.getElementById('speed').innerText = `Speed: ${speed.toFixed(1)}`;
+            }
+        }, incrementIntervalTime);
+    }
+
+    function startDecrement() {
+        if (decrementInterval) return; // Prevent starting a new decrement if already decrementing
+
+        decrementInterval = setInterval(() => {
+            if (speed > 0) {
+                speed -= decrementRate;
+                if (speed < 0) speed = 0;  // Ensure speed does not go below 0
+                document.getElementById('speed').innerText = `Speed: ${speed.toFixed(1)}`;
+            } else {
+                clearInterval(decrementInterval); // Stop decrementing when speed reaches 0
+                decrementInterval = null; // Reset decrement interval
+            }
+        }, incrementIntervalTime);
+    }
+
+    function stopIncrement() {
+        isHolding = false;
+        clearInterval(incrementInterval);
+        startDecrement();
+    }
+
+    function updateDistance() {
+      if(gameOver!= true){
+        distance += speed * (incrementIntervalTime / 1000); // Increment distance by speed * time (in seconds)
+        document.getElementById('distance').innerText = `Distance: ${Math.floor(distance).toFixed(1)}`;
+        
+      var dis = document.getElementById('distance');
+        distancecov.innertext = dis;
+        
+    }
+      else{
+        var sourceElement = document.querySelector('#distance');
+        var myValue = sourceElement.textContent; // or .innerHTML if needed
+
+        // Use querySelector to get the container and set its content
+        var container = document.querySelector('#distancecov');
+        container.textContent = myValue; // or .innerHTML if needed
+    
+        
+        
+      }
+    }
+    
+    
+
+    function init() {
+        distanceInterval = setInterval(updateDistance, incrementIntervalTime);
+
+        // Handle touch events
+        document.addEventListener('touchstart', startIncrement);
+        document.addEventListener('touchend', stopIncrement);
+        document.addEventListener('touchcancel', stopIncrement);
+
+        // Handle mouse events (for desktop)
+        document.addEventListener('mousedown', startIncrement);
+        document.addEventListener('mouseup', stopIncrement);
+        document.addEventListener('mouseleave', stopIncrement);
+    }
+
+    return {
+        init: init,
+    };
+})();
+
+// Initialize the game score system
+GameScore.init();
+
+
+
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
