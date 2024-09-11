@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Home Page</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #000000, #434343); /* Black to dark grey gradient */
+        }
+
+        .play-button {
+            padding: 30px 50px; /* Taller and less wide button */
+            border-radius: 60px; /* Rounded ends */
+            background-color: black; /* Dark black background */
+            color: white; /* White text */
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border: 2px solid white; /* White border */
+            cursor: pointer;
+            animation: intensePulseBlack 1s infinite; /* Intense animation for black button */
+            transition: transform 0.2s;
+        }
+
+        .play-button:hover {
+            transform: scale(1.15); /* Larger scale on hover */
+        }
+
+        @keyframes intensePulseBlack {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 10px white; /* White glow */
+            }
+            50% {
+                transform: scale(1.1); /* Increased scale for more intensity */
+                box-shadow: 0 0 20px white; /* Intense white glow */
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 10px white; /* Return to original glow */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="play-button" onclick="window.location.href='game.html'">Play</button>
+    </div>
+</body>
+</html>
